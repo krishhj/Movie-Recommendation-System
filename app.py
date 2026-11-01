@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import pandas as pd
 import pickle
@@ -6,6 +7,15 @@ import time
 
 session = requests.Session()
 
+def get_tmdb_api_key():
+    """Reads the TMDB API key from Streamlit secrets, falling back to an environment variable."""
+    try:
+        return st.secrets["TMDB_API_KEY"]
+    except (KeyError, FileNotFoundError):
+        return os.getenv("TMDB_API_KEY")
+
+TMDB_API_KEY = get_tmdb_api_key()
+
 def fetch_posters(movie_id):
     """Fetches the movie poster URL from the TMDB API with a robust retry mechanism."""
     retries = 3
@@ -13,7 +23,8 @@ def fetch_posters(movie_id):
     for i in range(retries):
         try:
             response = session.get(
-                f'https://api.themoviedb.org/3/movie/{movie_id}?api_key=437e74140d3489adcc94cde17b68ad07&language=en-US',
+                f'https://api.themoviedb.org/3/movie/{movie_id}',
+                params={'api_key': TMDB_API_KEY, 'language': 'en-US'},
                 timeout=5
             )
             
@@ -70,12 +81,16 @@ try:
         movies_list = pickle.load(f)
     with open('similarity.pkl', 'rb') as f:
         similarity = pickle.load(f)
-    movies = pd.DataFrame(movies_list)
+    # Row positions must match the similarity matrix; the pickled frame keeps gappy labels from dropna
+    movies = pd.DataFrame(movies_list).reset_index(drop=True)
 except FileNotFoundError:
     st.error("Error: The 'movies.pkl' or 'similarity.pkl' file was not found.")
     st.stop()
 
 st.title('Movie Recommender System')
+
+if not TMDB_API_KEY:
+    st.warning("TMDB_API_KEY is not set, so posters will not load. Add it to .streamlit/secrets.toml or the environment.")
 
 movie_titles = movies['original_title'].values
 selected_movie = st.selectbox('Select a Movie to get Recommendation', movie_titles)
