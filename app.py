@@ -58,11 +58,18 @@ def recommend(movie):
         distances = similarity[movie_index]
         movies_list = sorted(enumerate(distances), reverse=True, key=lambda x: x[1])[1:11]
 
+        # The dataset has repeated rows for a few films, so track IDs already used
+        seen_ids = {movies.iloc[movie_index].id}
+
         for i in movies_list:
             if len(recommended) >= 6:
                 break
-            
-            movie_id = movies.iloc[i[0]].id 
+
+            movie_id = movies.iloc[i[0]].id
+            if movie_id in seen_ids:
+                continue
+            seen_ids.add(movie_id)
+
             recommended.append(movies.iloc[i[0]].original_title)
             recommended_posters.append(fetch_posters(movie_id))
             time.sleep(0.1) 
